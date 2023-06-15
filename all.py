@@ -72,6 +72,14 @@ class Point(object):
         self.x = x
         self.y = y
 
+class Dimensions(object):
+    dx = 0
+    dy = 0
+    
+    def __init__(self, dx, dy):
+        self.dx = dx
+        self.dy = dy
+    
 class Rect(object):
     left = 0
     top = 0
@@ -85,7 +93,7 @@ class Rect(object):
         self.bottom = bottom
 
 class Component():
-    _boundaries = Rect(0,0,0,0)
+    _dimensions = Dimensions(0,0)
     _pos = Point(0,0)
     _selected = False
     def setPos(self, pos):
@@ -95,12 +103,12 @@ class Component():
     def doAction(self, offsetPoint):
         pass
     def getAbsoluteBounds(self):
-        return Rect(self._boundaries.left+self._pos.x,
-                    self._boundaries.top+self._pos.y,
-                    self._boundaries.right+self._pos.x,
-                    self._boundaries.bottom+self._pos.y)
-    def getRelativeBounds(self):
-        return self._boundaries
+        return Rect(self._pos.x,
+                    self._pos.y,
+                    self._dimensions.dx+self._pos.x,
+                    self._dimensions.dy+self._pos.y)
+    def getDimensions(self):
+        return self._dimensions
     def doNext(self):
         pass
     def doPrevious(self):
@@ -118,7 +126,7 @@ class Panel(Component):
 class Button(Component):
     def __init__(self):
         WIDTH, HEIGHT = DISPLAY.get_bounds()
-        self._boundaries = Rect(0,0,300,300)
+        self._dimensions = Dimensions(100,200)
         self.currentColor = getRandomColor()
     
     def tick(self):
