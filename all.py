@@ -91,6 +91,11 @@ class Rect(object):
         self.top = top
         self.right = right
         self.bottom = bottom
+        
+    def isInside(self, point):
+        if point.x >= self.left and point.x <= self.right and point.y >= self.top and point.y <= self.bottom:
+            return True
+        return False
 
 class Component():
     _dimensions = Dimensions(0,0)
@@ -116,17 +121,55 @@ class Component():
     def clearBounds(self):
         DISPLAY.set_pen(pens["black"])
         aB = self.getAbsoluteBounds()
-        DISPLAY.rectangle(aB.left,aB.top,aB.right,aB.bottom)
+        DISPLAY.rectangle(aB.left,aB.top,aB.right-aB.left,aB.bottom-aB.top)
         
 #-------------------------------------------------------------------------------------------------         
 class Panel(Component):
     _components = list()
-
+    
+    def __init__(self):
+        self._dimensions = Dimensions(200,200)
+    
+    def attach(self, component):
+        if(self.fit(component)):
+            self._components.append(component)
+            
+    def collidesWithAny(self, x, y, component):
+        if not self._components:
+            return False
+        
+        for existingComponent in self._components:
+            component.setPos(Point(x, y))
+            
+            existingAB = existingComponent.getAbsoluteBounds()
+            newAB = component.getAbsoluteBounds()
+            
+            if existingAB.isInside(Point(newAB.left, newAB.top)) or existingAB.isInside(Point(newAB.top, newAB.right)) or existingAB.isInside(Point(newAB.right, newAB.bottom)) or existingAB.isInside(Point(newAB.bottom, newAB.left)):
+                return True
+        return False
+    
+    def fit(self, component):
+        aB = self.getAbsoluteBounds()
+        
+        for y in range(aB.top, aB.bottom):
+            for x in range(aB.left, aB.right):
+                if not self.collidesWithAny(x, y, component):
+                    component.setPos(Point(x, y))
+                    return True
+        return False
+        
+    def tick(self):
+        
+        for component in self._components:
+            component.tick()
+        
+                
 
 class Button(Component):
-    def __init__(self):
+    def __init__(self, w, h):
         WIDTH, HEIGHT = DISPLAY.get_bounds()
-        self._dimensions = Dimensions(100,200)
+        self._dimensions = Dimensions(w,h)
+        self.currentColors = [getRandomColor(),getRandomColor(),getRandomColor()]
         self.currentColor = getRandomColor()
     
     def tick(self):
@@ -146,8 +189,8 @@ class Button(Component):
 
         for x in range(aB.left, aB.right + 1, pixel_size):
             for y in range(aB.top, aB.bottom + 1, pixel_size):
-                color = random.choice(["turquoise", "light_blue", "dark_cyan"])
-                DISPLAY.set_pen(pens[color])
+                color = random.choice(currentColors)
+                DISPLAY.set_pen(color)
                 # Color each pixel in the 4x4 square the same
                 for sub_x in range(x, min(aB.right + 1, x + pixel_size)):
                     for sub_y in range(y, min(aB.bottom + 1, y + pixel_size)):
@@ -158,7 +201,7 @@ class Button(Component):
     def drawNormal(self):
         DISPLAY.set_pen(self.currentColor)
         aB = self.getAbsoluteBounds()
-        DISPLAY.rectangle(aB.left,aB.top,aB.right,aB.bottom)
+        DISPLAY.rectangle(aB.left,aB.top,aB.right-aB.left,aB.bottom-aB.top)
         
     def doNext(self):
         self._selected = True
@@ -215,9 +258,14 @@ class ActionManager(object):
             self.actions[self.inputManager.getAction()](self)
             time.sleep(0.0001)
         
-firstComponent = Button()
-ticker = TickGenerator(firstComponent)
-actionManager = ActionManager(firstComponent)
+panel = Panel()
+panel.attach(Button(10,10))
+panel.attach(Button(200,20))
+panel.attach(Button(8,20))
+#panel.attach(Button(9,12))
+
+ticker = TickGenerator(panel)
+actionManager = ActionManager(panel)
 
 _thread.start_new_thread(ticker.startTick, ())
 actionManager.monitorActions()
