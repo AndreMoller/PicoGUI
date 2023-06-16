@@ -64,6 +64,19 @@ def getRandomColor():
 
 CURRENTTICK = 0
 #------------------------------------------------------------------------------------------------- 
+class Lock:
+    def __init__(self):
+        self.locked = False
+
+    def acquire(self):
+        while self.locked:
+            pass  # busy wait (not ideal)
+        self.locked = True
+
+    def release(self):
+        self.locked = False
+        
+
 class Point(object):
     x = 0
     y = 0
@@ -100,7 +113,7 @@ class Rect(object):
 class Component():
     _dimensions = Dimensions(0,0)
     _pos = Point(0,0)
-    _selected = False
+    _isSelected = False
     def setPos(self, pos):
         self._pos = pos
     def tick(self):
@@ -126,7 +139,8 @@ class Component():
 #-------------------------------------------------------------------------------------------------         
 class Panel(Component):
     _components = list()
-    
+    _currentIndex = 0
+    _tickLock = Lock()
     def __init__(self, w, h):
         self._dimensions = Dimensions(w, h)
     
@@ -159,11 +173,26 @@ class Panel(Component):
         return False
         
     def tick(self):
-        
+        self._tickLock.acquire()
         for component in self._components:
             component.tick()
+        self._tickLock.release()
         
-                
+    def doNext(self):
+        self._tickLock.acquire()
+        while not self.getCurrentComponent().doNext():
+            self._currentIndex += 1
+        self._tickLock.release()
+        
+    def doPrevious(self):
+        self._tickLock.acquire()
+        while not self.getCurrentComponent().doPrevious():
+            self._currentIndex += -1
+        self._tickLock.release()
+        
+    def getCurrentComponent(self):
+        print(self._currentIndex % len(self._components))
+        return self._components[self._currentIndex % len(self._components)]
 
 class Button(Component):
     def __init__(self, w, h):
@@ -174,7 +203,7 @@ class Button(Component):
     def tick(self):
         self.clearBounds()
         DISPLAY.set_pen(self.currentColor)
-        if self._selected:
+        if self._isSelected:
             self.drawSelected()
             return
         self.drawNormal()
@@ -188,7 +217,7 @@ class Button(Component):
 
         for x in range(aB.left, aB.right + 1, pixel_size):
             for y in range(aB.top, aB.bottom + 1, pixel_size):
-                color = random.choice(currentColors)
+                color = random.choice(self.currentColors)
                 DISPLAY.set_pen(color)
                 # Color each pixel in the 4x4 square the same
                 for sub_x in range(x, min(aB.right + 1, x + pixel_size)):
@@ -203,9 +232,17 @@ class Button(Component):
         DISPLAY.rectangle(aB.left,aB.top,aB.right-aB.left,aB.bottom-aB.top)
         
     def doNext(self):
-        self._selected = True
+        return self.toggleSelect()
+        
     def doPrevious(self):
-        self._selected = False
+        return self.toggleSelect()
+        
+    def toggleSelect(self):
+        if self._isSelected:
+            self._isSelected = False
+            return False
+        self._isSelected = True
+        return True
 #-------------------------------------------------------------------------------------------------         
 class Action:
     NONE = 0
@@ -238,7 +275,7 @@ class TickGenerator(object):
             self._theComponent.tick()
             CURRENTTICK = CURRENTTICK + 1
             DISPLAY.update()
-            time.sleep(0.01)
+            time.sleep(0.001)
 
 class ActionManager(object):
     actions = {
@@ -263,6 +300,8 @@ panel.attach(Button(int((WIDTH/3)),100))
 panel.attach(Button(int((WIDTH/6)),100))
 panel.attach(Button(int((WIDTH/6)),100))
 panel.attach(Button(int((WIDTH/3)),100))
+panel.attach(Button(int((WIDTH)),20))
+panel.attach(Button(int((WIDTH)),20))
 #panel.attach(Button(9,12))
 
 ticker = TickGenerator(panel)
