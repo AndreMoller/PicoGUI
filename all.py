@@ -272,6 +272,8 @@ class TickGenerator(object):
     def startTick(self):
         global CURRENTTICK
         while(True):
+            DISPLAY.set_pen(pens["black"])
+            DISPLAY.clear()
             self._theComponent.tick()
             CURRENTTICK = CURRENTTICK + 1
             DISPLAY.update()
