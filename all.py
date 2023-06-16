@@ -105,7 +105,7 @@ class Component():
         self._pos = pos
     def tick(self):
         pass
-    def doAction(self, offsetPoint):
+    def doAction(self):
         pass
     def getAbsoluteBounds(self):
         return Rect(self._pos.x,
@@ -127,8 +127,8 @@ class Component():
 class Panel(Component):
     _components = list()
     
-    def __init__(self):
-        self._dimensions = Dimensions(200,200)
+    def __init__(self, w, h):
+        self._dimensions = Dimensions(w, h)
     
     def attach(self, component):
         if(self.fit(component)):
@@ -144,7 +144,7 @@ class Panel(Component):
             existingAB = existingComponent.getAbsoluteBounds()
             newAB = component.getAbsoluteBounds()
             
-            if existingAB.isInside(Point(newAB.left, newAB.top)) or existingAB.isInside(Point(newAB.top, newAB.right)) or existingAB.isInside(Point(newAB.right, newAB.bottom)) or existingAB.isInside(Point(newAB.bottom, newAB.left)):
+            if existingAB.isInside(Point(newAB.left, newAB.top)) or existingAB.isInside(Point(newAB.left, newAB.bottom)) or existingAB.isInside(Point(newAB.right, newAB.bottom)) or existingAB.isInside(Point(newAB.right, newAB.top)):
                 return True
         return False
     
@@ -167,7 +167,6 @@ class Panel(Component):
 
 class Button(Component):
     def __init__(self, w, h):
-        WIDTH, HEIGHT = DISPLAY.get_bounds()
         self._dimensions = Dimensions(w,h)
         self.currentColors = [getRandomColor(),getRandomColor(),getRandomColor()]
         self.currentColor = getRandomColor()
@@ -257,11 +256,13 @@ class ActionManager(object):
         while(True):
             self.actions[self.inputManager.getAction()](self)
             time.sleep(0.0001)
-        
-panel = Panel()
-panel.attach(Button(10,10))
-panel.attach(Button(200,20))
-panel.attach(Button(8,20))
+            
+WIDTH, HEIGHT = DISPLAY.get_bounds()        
+panel = Panel(WIDTH, HEIGHT)
+panel.attach(Button(int((WIDTH/3)),100))
+panel.attach(Button(int((WIDTH/6)),100))
+panel.attach(Button(int((WIDTH/6)),100))
+panel.attach(Button(int((WIDTH/3)),100))
 #panel.attach(Button(9,12))
 
 ticker = TickGenerator(panel)
