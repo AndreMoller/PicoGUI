@@ -1,9 +1,21 @@
+
 import time
 import random
 import _thread
+import urequests
+import ujson
+import network
+ 
 
 from pimoroni import Button as Control
 from picographics import PicoGraphics, DISPLAY_PICO_DISPLAY_2, PEN_P8
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+ssid = 'asusasus'  # Placeholder
+password = 'susasusa' # Placeholder
+wlan.connect(ssid, password)
+print(wlan.isconnected())
 
 DISPLAY = PicoGraphics(display=DISPLAY_PICO_DISPLAY_2, pen_type=PEN_P8)
 DISPLAY.set_backlight(0.7)
@@ -211,11 +223,13 @@ class Panel(Component):
 
 class HueButton(Component):
     
-    def __init__(self, w, h):
+    def __init__(self, w, h, lampID, hueComs):
         self._dimensions = Dimensions(w,h)
         self.currentColors = [pens["hue_enabled_1"],pens["hue_enabled_2"],pens["hue_enabled_3"]]
         self.currentColor = pens["red"]
         self._isEnabled = False
+        self._lampID = lampID
+        self._hueComs = hueComs
     
     def tick(self):
         self.clearBounds()
@@ -231,13 +245,21 @@ class HueButton(Component):
     
     def doAction(self):
         self.toggleEnable()
+        self._hueComs.setState(self._lampID, self._isEnabled)
+        
+    def doNext(self):
+        return self.toggleSelect()
+        
+    def doPrevious(self):
+        return self.toggleSelect()
         
     def drawSelected(self):
         DISPLAY.set_pen(self.currentColor)
         self.drawBorder(3)
                 
     def drawNormal(self):
-        pass
+        DISPLAY.set_pen(pens["white"])
+        self.drawBorder(1)
         
     def drawEnabled(self):
         aB = self.getAbsoluteBounds()
@@ -254,22 +276,34 @@ class HueButton(Component):
         aB = self.getAbsoluteBounds()
         DISPLAY.rectangle(aB.left,aB.top,aB.right-aB.left,aB.bottom-aB.top)
         
-    def doNext(self):
-        return self.toggleSelect()
-        
-    def doPrevious(self):
-        return self.toggleSelect()
-        
     def toggleSelect(self):
-        if self._isSelected:
-            self._isSelected = False
-            return False
-        self._isSelected = True
-        return True
+        self._isSelected = not self._isSelected
+        return self._isSelected
     
     def toggleEnable(self):
         self._isEnabled = not self._isEnabled
-#-------------------------------------------------------------------------------------------------         
+#-------------------------------------------------------------------------------------------------
+class HueCommunicator:
+    def __init__(self, ip, username):
+        self._ip = ip
+        self._username = username
+
+    def getAll(self):
+        print(f'http://{self._ip}/api/{self._username}/lights')
+        response = urequests.get(f'http://{self._ip}/api/{self._username}/lights')
+        response.close
+        return list(ujson.loads(response.text).keys())
+        
+    def setState(self, id, state):
+        
+        body = ujson.dumps({'on': state})
+        print('http://{self._ip}/api/{self._username}/lights/{id}/state')
+        res = urequests.put(f'http://{self._ip}/api/{self._username}/lights/{id}/state', data=body)
+        res.close()
+
+   
+        
+#-------------------------------------------------------------------------------------------------   
 class Action:
     NONE = 0
     NEXT = 1
@@ -304,6 +338,7 @@ class TickGenerator(object):
             CURRENTTICK = CURRENTTICK + 1
             DISPLAY.update()
             time.sleep(0.001)
+            print(wlan.isconnected())
 
 class ActionManager(object):
     actions = {
@@ -322,13 +357,16 @@ class ActionManager(object):
             self.actions[self.inputManager.getAction()](self)
             time.sleep(0.0001)
             
-WIDTH, HEIGHT = DISPLAY.get_bounds()        
+
+hue = HueCommunicator("192.168.50.125", "XNA5ReISIUJLvaK2ejyWXnZUFuNI6aXlqNAMFrx8")
+
+WIDTH, HEIGHT = DISPLAY.get_bounds()  
 panel = Panel(WIDTH, HEIGHT)
-panel.attach(HueButton(int((WIDTH / 3)), 100))
-panel.attach(HueButton(int((WIDTH / 6)), 100))
-panel.attach(HueButton(int((WIDTH / 6)), 100))
-panel.attach(HueButton(int((WIDTH / 3)), 100))
-#panel.attach(Button(9,12))
+lamps = hue.getAll()
+for lamp in lamps:
+    panel.attach(HueButton(int((WIDTH / 5)-1), 100, lamp, hue))
+
+
 
 ticker = TickGenerator(panel)
 actionManager = ActionManager(panel)
