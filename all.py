@@ -234,7 +234,7 @@ class HueButton(Component):
         
     def drawSelected(self):
         DISPLAY.set_pen(self.currentColor)
-        self.drawBorder(1)
+        self.drawBorder(3)
                 
     def drawNormal(self):
         pass
@@ -243,14 +243,11 @@ class HueButton(Component):
         aB = self.getAbsoluteBounds()
         pixel_size = 4  # size of one side of the square pixel
 
-        for x in range(aB.left, aB.right + 1, pixel_size):
-            for y in range(aB.top, aB.bottom + 1, pixel_size):
+        for x in range(aB.left, aB.right - pixel_size + 1, pixel_size):
+            for y in range(aB.top, aB.bottom - pixel_size + 1, pixel_size):
                 color = random.choice(self.currentColors)
                 DISPLAY.set_pen(color)
-                # Color each pixel in the 4x4 square the same
-                for sub_x in range(x, min(aB.right + 1, x + pixel_size)):
-                    for sub_y in range(y, min(aB.bottom + 1, y + pixel_size)):
-                        DISPLAY.pixel(sub_x, sub_y)
+                DISPLAY.rectangle(x, y, pixel_size, pixel_size)
                         
     def drawDisabled(self):
         DISPLAY.set_pen(self.currentColor)
