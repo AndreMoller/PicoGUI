@@ -57,6 +57,10 @@ pens = {
     "dark_yellow": DISPLAY.create_pen(204, 204, 0),
     "dark_cyan": DISPLAY.create_pen(0, 204, 204),
     "dark_magenta": DISPLAY.create_pen(204, 0, 204),
+    "hue_enabled_1": DISPLAY.create_pen(249, 228, 41),
+    "hue_enabled_2": DISPLAY.create_pen(250, 231, 62),
+    "hue_enabled_3": DISPLAY.create_pen(250, 233, 84),
+    
 }
 
 def getRandomColor():
@@ -136,6 +140,14 @@ class Component():
         aB = self.getAbsoluteBounds()
         DISPLAY.rectangle(aB.left,aB.top,aB.right-aB.left,aB.bottom-aB.top)
         
+    def drawBorder(self, borderWidth):
+        aB = self.getAbsoluteBounds()
+        
+        DISPLAY.rectangle(aB.left, aB.top, self._dimensions.dx, borderWidth)
+        DISPLAY.rectangle(aB.left, aB.bottom - borderWidth, self._dimensions.dx, borderWidth)
+        DISPLAY.rectangle(aB.left, aB.top, borderWidth, self._dimensions.dy)
+        DISPLAY.rectangle(aB.right - borderWidth, aB.top, borderWidth, self._dimensions.dy)
+        
 #-------------------------------------------------------------------------------------------------         
 class Panel(Component):
     _components = list()
@@ -171,7 +183,10 @@ class Panel(Component):
                     component.setPos(Point(x, y))
                     return True
         return False
-        
+    
+    def doAction(self):
+        self.getCurrentComponent().doAction()
+    
     def tick(self):
         self._tickLock.acquire()
         for component in self._components:
@@ -194,24 +209,37 @@ class Panel(Component):
         print(self._currentIndex % len(self._components))
         return self._components[self._currentIndex % len(self._components)]
 
-class Button(Component):
+class HueButton(Component):
+    
     def __init__(self, w, h):
         self._dimensions = Dimensions(w,h)
-        self.currentColors = [getRandomColor(),getRandomColor(),getRandomColor()]
-        self.currentColor = getRandomColor()
+        self.currentColors = [pens["hue_enabled_1"],pens["hue_enabled_2"],pens["hue_enabled_3"]]
+        self.currentColor = pens["red"]
+        self._isEnabled = False
     
     def tick(self):
         self.clearBounds()
-        DISPLAY.set_pen(self.currentColor)
+        
+        if self._isEnabled:
+            self.drawEnabled()
+            
+        
         if self._isSelected:
             self.drawSelected()
             return
         self.drawNormal()
     
     def doAction(self):
-        pass
+        self.toggleEnable()
         
     def drawSelected(self):
+        DISPLAY.set_pen(self.currentColor)
+        self.drawBorder(1)
+                
+    def drawNormal(self):
+        pass
+        
+    def drawEnabled(self):
         aB = self.getAbsoluteBounds()
         pixel_size = 4  # size of one side of the square pixel
 
@@ -223,10 +251,8 @@ class Button(Component):
                 for sub_x in range(x, min(aB.right + 1, x + pixel_size)):
                     for sub_y in range(y, min(aB.bottom + 1, y + pixel_size)):
                         DISPLAY.pixel(sub_x, sub_y)
-
-        
-                
-    def drawNormal(self):
+                        
+    def drawDisabled(self):
         DISPLAY.set_pen(self.currentColor)
         aB = self.getAbsoluteBounds()
         DISPLAY.rectangle(aB.left,aB.top,aB.right-aB.left,aB.bottom-aB.top)
@@ -243,6 +269,9 @@ class Button(Component):
             return False
         self._isSelected = True
         return True
+    
+    def toggleEnable(self):
+        self._isEnabled = not self._isEnabled
 #-------------------------------------------------------------------------------------------------         
 class Action:
     NONE = 0
@@ -298,12 +327,10 @@ class ActionManager(object):
             
 WIDTH, HEIGHT = DISPLAY.get_bounds()        
 panel = Panel(WIDTH, HEIGHT)
-panel.attach(Button(int((WIDTH/3)),100))
-panel.attach(Button(int((WIDTH/6)),100))
-panel.attach(Button(int((WIDTH/6)),100))
-panel.attach(Button(int((WIDTH/3)),100))
-panel.attach(Button(int((WIDTH)),20))
-panel.attach(Button(int((WIDTH)),20))
+panel.attach(HueButton(int((WIDTH / 3)), 100))
+panel.attach(HueButton(int((WIDTH / 6)), 100))
+panel.attach(HueButton(int((WIDTH / 6)), 100))
+panel.attach(HueButton(int((WIDTH / 3)), 100))
 #panel.attach(Button(9,12))
 
 ticker = TickGenerator(panel)
