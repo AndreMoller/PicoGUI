@@ -1,21 +1,12 @@
-
 import time
 import random
 import _thread
 import urequests
 import ujson
 import network
- 
 
 from pimoroni import Button as Control
 from picographics import PicoGraphics, DISPLAY_PICO_DISPLAY_2, PEN_P8
-
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-ssid = 'asusasus'  # Placeholder
-password = 'susasusa' # Placeholder
-wlan.connect(ssid, password)
-print(wlan.isconnected())
 
 DISPLAY = PicoGraphics(display=DISPLAY_PICO_DISPLAY_2, pen_type=PEN_P8)
 DISPLAY.set_backlight(0.7)
@@ -300,7 +291,6 @@ class HueCommunicator:
         print('http://{self._ip}/api/{self._username}/lights/{id}/state')
         res = urequests.put(f'http://{self._ip}/api/{self._username}/lights/{id}/state', data=body)
         res.close()
-
    
         
 #-------------------------------------------------------------------------------------------------   
@@ -338,7 +328,6 @@ class TickGenerator(object):
             CURRENTTICK = CURRENTTICK + 1
             DISPLAY.update()
             time.sleep(0.001)
-            print(wlan.isconnected())
 
 class ActionManager(object):
     actions = {
@@ -356,7 +345,47 @@ class ActionManager(object):
         while(True):
             self.actions[self.inputManager.getAction()](self)
             time.sleep(0.0001)
+
+class ConnectionManager(object):
+    ssid = 'asusasus'  # Placeholder
+    password = 'susasusa' # Placeholder
+    WAIT_DURATION = 1
+    MAX_WAITS = 50
+    MAX_RETRIES = 10
+    
+    def __init__(self):
+        self.connectWithRetries()
+    
+    def connectWithRetries(self):
+        totalRetries = 0
+        success = False
+        while success == False:
+            try:
+                self.connect()
+                success = True
+            except Exception as e:  # capture the exception
+                print("EXCEPTION:", str(e))  # print the exception
+                if totalRetries > self.MAX_RETRIES:
+                    machine.reset()
+                totalRetries += 1
+
+    
+    def connect(self):
+        totalWaits = 0
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        wlan.connect(self.ssid, self.password)
             
+        while wlan.isconnected() == False and totalWaits <= self.MAX_WAITS:
+            print('Waiting for connection...')
+            time.sleep(self.WAIT_DURATION)
+            totalWaits += 1
+                
+        if wlan.isconnected() == False:
+            machine.reset() 
+        print(wlan.ifconfig())
+
+connectionManager = ConnectionManager()
 
 hue = HueCommunicator("192.168.50.125", "XNA5ReISIUJLvaK2ejyWXnZUFuNI6aXlqNAMFrx8")
 
