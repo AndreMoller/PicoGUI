@@ -275,23 +275,36 @@ class HueButton(Component):
         self._isEnabled = not self._isEnabled
 #-------------------------------------------------------------------------------------------------
 class HueCommunicator:
+    MAX_RETRIES = 5
     def __init__(self, ip, username):
         self._ip = ip
         self._username = username
 
     def getAll(self):
-        print(f'http://{self._ip}/api/{self._username}/lights')
-        response = urequests.get(f'http://{self._ip}/api/{self._username}/lights')
-        response.close
-        return list(ujson.loads(response.text).keys())
-        
+        def getAll():
+            print(f'http://{self._ip}/api/{self._username}/lights')
+            response = urequests.get(f'http://{self._ip}/api/{self._username}/lights')
+            response.close
+            return list(ujson.loads(response.text).keys())
+        self.doWithRetry(getAll)
+            
     def setState(self, id, state):
+        def setState():
+            body = ujson.dumps({'on': state})
+            print(f'http://{self._ip}/api/{self._username}/lights/{id}/state')
+            res = urequests.put(f'http://{self._ip}/api/{self._username}/lights/{id}/state', data=body)
+            res.close()
+            
+        self.doWithRetry(setState)
         
-        body = ujson.dumps({'on': state})
-        print('http://{self._ip}/api/{self._username}/lights/{id}/state')
-        res = urequests.put(f'http://{self._ip}/api/{self._username}/lights/{id}/state', data=body)
-        res.close()
-   
+    def doWithRetry(self, action):
+        retryCount = 0
+        while retryCount <= self.MAX_RETRIES:
+            try:
+                return action()
+            except:
+                retryCount += 1
+       
         
 #-------------------------------------------------------------------------------------------------   
 class Action:
@@ -368,7 +381,6 @@ class ConnectionManager(object):
                 if totalRetries > self.MAX_RETRIES:
                     machine.reset()
                 totalRetries += 1
-
     
     def connect(self):
         totalWaits = 0
