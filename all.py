@@ -223,11 +223,13 @@ class HueButton(Component):
         self._hueComs = hueComs
     
     def tick(self):
+        if CURRENTTICK % 1000 == 0:
+            self.updateLightState()
+        
         self.clearBounds()
         
         if self._isEnabled:
-            self.drawEnabled()
-            
+            self.drawEnabled() 
         
         if self._isSelected:
             self.drawSelected()
@@ -273,20 +275,26 @@ class HueButton(Component):
     
     def toggleEnable(self):
         self._isEnabled = not self._isEnabled
+    
+    def updateLightState(self):
+        print(self._hueComs.getState(self._lampID))
+        
+    
 #-------------------------------------------------------------------------------------------------
 class HueCommunicator:
     MAX_RETRIES = 5
-    def __init__(self, ip, username):
+    def __init__(self, ip, username, connectionManager):
         self._ip = ip
         self._username = username
+        self._connectionManager = connectionManager
 
     def getAll(self):
         def getAll():
             print(f'http://{self._ip}/api/{self._username}/lights')
             response = urequests.get(f'http://{self._ip}/api/{self._username}/lights')
-            response.close
+            #response.close()
             return list(ujson.loads(response.text).keys())
-        self.doWithRetry(getAll)
+        return self.doWithRetry(getAll)
             
     def setState(self, id, state):
         def setState():
@@ -297,13 +305,26 @@ class HueCommunicator:
             
         self.doWithRetry(setState)
         
+    def getState(self, id):
+        def getState():
+            print(f'http://{self._ip}/api/{self._username}/light/{id}')
+            res = urequests.get(f'http://{self._ip}/api/{self._username}/lights/{id}')
+            res.close()
+            return ujson.loads(res.text) 
+            
+        self.doWithRetry(getState)
+        
     def doWithRetry(self, action):
         retryCount = 0
         while retryCount <= self.MAX_RETRIES:
             try:
                 return action()
-            except:
+            except Exception as e:
+                print(e)
                 retryCount += 1
+                if retryCount > self.MAX_RETRIES / 2:
+                    self._connectionManager.connectWithRetries()
+        machine.reset()
        
         
 #-------------------------------------------------------------------------------------------------   
@@ -399,7 +420,7 @@ class ConnectionManager(object):
 
 connectionManager = ConnectionManager()
 
-hue = HueCommunicator("192.168.50.125", "XNA5ReISIUJLvaK2ejyWXnZUFuNI6aXlqNAMFrx8")
+hue = HueCommunicator("192.168.50.125", "XNA5ReISIUJLvaK2ejyWXnZUFuNI6aXlqNAMFrx8", connectionManager)
 
 WIDTH, HEIGHT = DISPLAY.get_bounds()  
 panel = Panel(WIDTH, HEIGHT)
